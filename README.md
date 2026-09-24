@@ -19,6 +19,8 @@ removed entirely.
   locking, inherited from SQLite.
 - **File format**: same page/cell layout as SQLite, with a different magic
   string so `sqlite3` CLI tools do not mistake it for a SQL database.
+- **Build artifact**: `liblitebtree.a` / `liblitebtree.so` (no third-party
+  dependencies). Public API functions are prefixed `litebtree_`.
 
 The design and extraction plan is documented in
 [docs/kv-extraction-plan.md](docs/kv-extraction-plan.md).
