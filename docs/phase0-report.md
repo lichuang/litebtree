@@ -13,7 +13,7 @@
 | 内部头 | `src/btreeliteInt.h` | sqliteInt.h 的存储子集（~1100 行） |
 | 兼容垫片 | `src/sqliteInt.h` | Phase 4 删除；上游 .c 无缝编译的关键 |
 | VDBE 空壳 | `src/vdbeInt.h` | 仅为 status.c 的已删 case 服务，Phase 2 删 |
-| Makefile | `src/Makefile` | `make` 构建库；`make scan`/`census` 产出符号清单 |
+| Makefile | `Makefile`（项目根目录） | `make` 构建库；`make scan`/`census` 产出符号清单 |
 | 库 | `libbtreelite.a` | 18 个 TU，~186KB |
 
 ## 2. 编译结果
@@ -64,7 +64,7 @@ mach-o file`。
 - `sqlite3DefaultMutex/NoopMutex/MemoryBarrier/MemSetDefault/RealToI64/
   HexToInt/PutVarint32/uri_boolean/initialize/os_init`
 
-（完整清单见 `src/scan.out/undefined_symbols.txt`，`make scan` 重新生成。）
+（完整清单见 `scan.out/undefined_symbols.txt`，`make scan` 重新生成。）
 
 ## 5. SQL 耦合点记录（垫片吸收的、尚未拆的）
 

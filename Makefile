@@ -1,6 +1,6 @@
 # btreelite Makefile
 #
-# Phase 0 build: compile the extracted storage sources against
+# Phase 0 build: compile the extracted storage sources in src/ against
 # src/btreeliteInt.h.  Sources are compiled unmodified from SQLite at this
 # stage; unresolved-symbol analysis (make scan) drives the Phase 1-4
 # seam work.
@@ -8,13 +8,15 @@
 CC      ?= cc
 AR      ?= ar
 CFLAGS  ?= -O2
-CFLAGS  += -I. -I../include -Wall -Wno-unused-parameter -Wno-deprecated-declarations
+CFLAGS  += -Isrc -Iinclude -Wall -Wno-unused-parameter -Wno-deprecated-declarations
 # Debug build:  make CFLAGS="-O0 -g -DSQLITE_DEBUG"
 # Release build keeps NDEBUG (asserts off).
 
+SRCDIR  = src
+LIB     = libbtreelite.a
+
 HDRS    = btreeliteInt.h btreeInt.h pager.h wal.h pcache.h pcache1.h \
           os.h os_common.h os_setup.h mutex.h
-LIB     = ../libbtreelite.a
 
 # Order matters for the final link only; each file compiles independently.
 CORE_SOURCES = \
@@ -42,7 +44,7 @@ CORE_SOURCES = \
 API_SOURCES =
 
 SOURCES = $(CORE_SOURCES) $(API_SOURCES)
-OBJECTS = $(SOURCES:.c=.o)
+OBJECTS = $(SOURCES:%.c=$(SRCDIR)/%.o)
 
 all: $(LIB)
 
@@ -51,7 +53,7 @@ all: $(LIB)
 $(LIB): $(OBJECTS)
 	/usr/bin/libtool -static -o $@ $(OBJECTS)
 
-%.o: %.c
+$(SRCDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile-only pass: report every translation unit that fails to compile
@@ -59,30 +61,25 @@ $(LIB): $(OBJECTS)
 compile-only: $(OBJECTS)
 
 .PHONY: $(OBJECTS)
-$(OBJECTS): %.o: %.c
+$(OBJECTS): $(SRCDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Unresolved-symbol scan.  Compiles each object and greps the undefined
 # references it makes.  Output feeds docs/phase.md phase planning.
 scan: $(OBJECTS)
 	@rm -rf scan.out && mkdir -p scan.out
-	@for o in $(OBJECTS); do nm -u $$o > scan.out/$$o.undefined 2>/dev/null; done
-	@cat scan.out/*.undefined | awk '{print $$2}' | sort | uniq -c \
-	  | sort -rn > scan.out/undefined_symbols.txt
-	@echo "== undefined symbols by count (see scan.out/) =="
-	@cat scan.out/undefined_symbols.txt 2>/dev/null || cat scan.out/undefined.txt 2>/dev/null || head -50 scan.out/undefined_symbols.txt 2>/dev/null
+	@for o in $(OBJECTS); do nm -u $$o > scan.out/`basename $$o`.undefined 2>/dev/null; done
 	@awk '{print $$2}' scan.out/*.undefined | sort -u | grep -v '^_GLOBAL' \
-	  | grep -v '^$' > scan.out/undefined_symbols.txt
+	  | grep -v '^$$' > scan.out/undefined_symbols.txt
 	@wc -l scan.out/undefined_symbols.txt
 
 # SQL-layer coupling census: count references to sqlite3-API symbols that
 # only exist in the SQL layer.  These are the seam points to cut in
 # Phase 1-2.
 census:
-	@grep -c 'sqlite3[A-Z]' $(SOURCES) || true
 	@echo "---- per-file counts of SQL-layer symbols ----"
 	@for f in $(SOURCES); do \
-	  n=`grep -o 'sqlite3\(Malloc\|Realloc\|Free\|DbMalloc\|DbFree\|PageMalloc\|PageFree\|GlobalConfig\|MutexAlloc\|MutexInit\|MutexEnd\|StatusUp\|StatusDown\|StatusHighwater\|StatusValue\|BeginBenignMalloc\|EndBenignMalloc\|FaultSim\|Randomness\|Log\|StrAccum\|str_append\|str_appendf\|str_vappendf\|StrAccumInit\|StrAccumFinish\|Log\|InvokeBusyHandler\|ReportError\|MallocInit\|MallocEnd\|MutexEnd\|PcacheInitialize\|PcacheShutdown\|PcacheSetDefault\|OsInit\|IsNaN\|MemSetDefault\|Memdebug\|malloc64\|realloc64\|mprintf\|snprintf\|strcmp\|AbsInt32\|Get4byte\|Put4byte\|GetVarint\|PutVarint\|GetInt32\|Put2byte\|Get2byte\|Bitvec[A-Z]\|ConnectionBlocked\|TempInMemory\|WritableSchema\|Backup[A-Z]\|_exec\|Exec\|database_file_object\|create_filename\|filename_database\|uri_[a-z]*\|Strlen30\|IsMemdb\|MemSetArrayInt64\)' $$f | wc -l`; \
+	  n=`grep -o 'sqlite3\(Malloc\|Realloc\|Free\|DbMalloc\|DbFree\|PageMalloc\|PageFree\|GlobalConfig\|MutexAlloc\|MutexInit\|MutexEnd\|StatusUp\|StatusDown\|StatusHighwater\|StatusValue\|BeginBenignMalloc\|EndBenignMalloc\|FaultSim\|Randomness\|StrAccum\|str_append\|str_appendf\|str_vappendf\|StrAccumInit\|StrAccumFinish\|InvokeBusyHandler\|ReportError\|MallocInit\|MallocEnd\|PcacheInitialize\|PcacheShutdown\|PcacheSetDefault\|OsInit\|IsNaN\|MemSetDefault\|Memdebug\|malloc64\|realloc64\|mprintf\|snprintf\|AbsInt32\|Get4byte\|Put4byte\|GetVarint\|PutVarint\|GetInt32\|Put2byte\|Get2byte\|Bitvec[A-Z]\|ConnectionBlocked\|TempInMemory\|WritableSchema\|Backup[A-Z]\|_exec\|database_file_object\|create_filename\|filename_database\|uri_[a-z]*\|Strlen30\|IsMemdb\|MemSetArrayInt64\)' $(SRCDIR)/$$f | wc -l`; \
 	  echo "$$f: $$n"; \
 	done
 
