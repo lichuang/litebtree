@@ -20,16 +20,20 @@ HDRS    = btreeliteInt.h btreeInt.h pager.h wal.h pcache.h pcache1.h \
 
 # Order matters for the final link only; each file compiles independently.
 CORE_SOURCES = \
+    btreelite_compat.c \
     malloc.c \
-    mem0.c \
     global.c \
     mem1.c \
+    fault.c \
+    mutex_noop.c \
     status.c \
     random.c \
     mutex.c \
     mutex_unix.c \
     bitvec.c \
     util.c \
+    printf.c \
+    utf.c \
     memjournal.c \
     os.c \
     os_unix.c \
@@ -88,3 +92,14 @@ clean:
 	rm -rf scan.out
 
 .PHONY: all compile-only scan census clean
+# ----------------------------------------------------------------------
+# Tests
+# ----------------------------------------------------------------------
+TESTBIN = test/t_smoke
+$(TESTBIN): test/t_smoke.c $(LIB)
+	$(CC) $(CFLAGS) -o $@ test/t_smoke.c $(LIB)
+
+test: $(TESTBIN)
+	cd test && ../$(TESTBIN)
+
+.PHONY: test

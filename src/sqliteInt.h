@@ -29,6 +29,18 @@ typedef struct Hash Hash;
 typedef struct HashElem HashElem;
 typedef struct Module Module;
 typedef struct sqlite3_backup sqlite3_backup;
+typedef struct PrintfArguments PrintfArguments;
+struct PrintfArguments {
+  int nArg;                /* Total number of arguments */
+  int nUsed;               /* Number of arguments used so far */
+  sqlite3_value **apArg;   /* The argument values */
+};
+
+/* SQL value accessors used by the SQLFUNC printf path; the API layer
+** (Phase 4) supplies implementations over its own value type. */
+sqlite3_int64 sqlite3_value_int64(sqlite3_value*);
+double sqlite3_value_double(sqlite3_value*);
+const unsigned char *sqlite3_value_text(sqlite3_value*);
 typedef struct StrAccum sqlite3_str;
 #define SQLITE_PRINTF_INTERNAL 0x01
 #define SQLITE_PRINTF_SQLFUNC  0x02
@@ -82,7 +94,7 @@ void sqlite3Put4byte(u8*, u32);
 u8 sqlite3GetVarint(const unsigned char*, u64*);
 int sqlite3PutVarint(unsigned char*, u64);
 u8 sqlite3GetVarint32(const unsigned char*, u32*);
-u8 sqlite3PutVarint32(unsigned char*, u32);
+int sqlite3PutVarint32(unsigned char*, u32);
 int sqlite3GetInt32(const char*, int*);
 int sqlite3VarintLen(u64);
 int sqlite3Utf8ByteLen(const char*, int);
@@ -165,7 +177,6 @@ int sqlite3ApiExit(sqlite3*, int);
 #define IsOvfl(X)            0
 #define UpperToLower         sqlite3UpperToLower
 u32 sqlite3HexToInt(int h);
-static int SQLITE_NOINLINE putVarint64(unsigned char *p, u64 v);
 
 extern const unsigned char sqlite3UpperToLower[];
 #define sqlite3Isspace(x)   (isspace((unsigned char)(x)))
@@ -196,7 +207,6 @@ extern const unsigned char sqlite3UpperToLower[];
 
 /* btree.h / pager.h interfaces used by the storage sources; the real
 ** prototypes come from btree.h / pager.h, included by btreeliteInt.h. */
-void sqlite3BtreeLeaveAll(sqlite3*);
 
 
 /* deliberate_fall_through (from sqliteInt.h) */
@@ -248,6 +258,30 @@ void sqlite3OsCloseFree(sqlite3_file *);
 int sqlite3OsInit(void);
 
 
+/* printf.c internals */
+int sqlite3StrAccumEnlarge(StrAccum*, i64);
+int sqlite3StrAccumEnlargeIfNeeded(StrAccum*, i64);
+void sqlite3_str_appendchar(sqlite3_str*, int, char);
+int sqlite3AppendOneUtf8Character(char*, u32);
+u32 sqlite3Utf8Read(const unsigned char**);
+#define SQLITE_SKIP_UTF8(zIn) {                        \
+  if( (*(zIn++))>=0xc0 ){                              \
+    while( (*zIn & 0xc0)==0x80 ){ zIn++; }             \
+  }                                                    \
+}
+
+/* Floating-point decode (util.c subset) */
+struct FpDecode {
+  int n;
+  int iDP;
+  char *z;
+  char zBuf[20+1];
+  char sign;
+  char isSpecial;
+};
+typedef struct FpDecode FpDecode;
+void sqlite3FpDecode(FpDecode*,double,int,int);
+
 /* Stack allocation macros (from sqliteInt.h) */
 #ifdef SQLITE_USE_ALLOCA
 # define sqlite3StackAllocRaw(D,N)   alloca(N)
@@ -292,6 +326,15 @@ i64 sqlite3RealToI64(double);
 
 /* IOTRACE / PAGERTRACE / WALTRACE macros (no-op unless tracing enabled) */
 #define IOTRACE(X)
+#define OSTRACE(X)
+#define OS_VXWORKS 0
+#define SQLITE_FCNTL_NULL_IO 45
+#define SQLITE_FCNTL_EXTERNAL_READER 46
+#define SQLITE_FCNTL_GET_LOCKPROXYFILE_UNUSED 0
+char *sqlite3_mprintf(const char*, ...);
+void sqlite3FileSuffix3(const char*, char*);
+extern char *sqlite3_temp_directory;
+#define SQLITE_MUTEX_STATIC_TEMPDIR SQLITE_MUTEX_STATIC_VFS1
 #define SQLITE_OMIT_TRACE 1
 
 /* bitvec.c API */
@@ -344,8 +387,10 @@ const char *sqlite3_uri_parameter(const char*, const char*);
   sqlite3PutVarint((A),(B)))
 #define getVarint    sqlite3GetVarint
 #define putVarint    sqlite3PutVarint
-#define putVarint32  sqlite3PutVarint32
 #define get2byteNotZero(X)  (((((int)get2byte(X))-1)&0xffff)+1)
+
+char *sqlite3_snprintf(int, char*, const char*, ...);
+int sqlite3GetBoolean(const char *z, int dflt);
 
 /* VDBE record-compare entry points (vdbe.c in SQLite; memcmp-based
 ** implementations ship in the btreelite API layer). */

@@ -84,3 +84,10 @@ dist/
 
 # sqlite snapshot source (upstream reference, not part of the build)
 # sqlite-snapshot-*/
+
+# Test artifacts
+test/t_smoke
+test/*.db
+test/*.db-journal
+test/*.db-wal
+test/*.db-shm

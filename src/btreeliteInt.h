@@ -65,7 +65,11 @@ typedef sqlite3_uint64 sqlite_uint64;
 #define SQLITE_OMIT_TRACE            1
 #define SQLITE_OMIT_GET_TABLE        1
 #define SQLITE_OMIT_DEPRECATED       1
-#define SQLITE_UNTESTABLE            0
+/* Fault-simulation machinery is kept (fault.c); the macro must not be
+** defined, because fault.c / util.c key off "#ifdef SQLITE_UNTESTABLE". */
+#if defined(SQLITE_UNTESTABLE)
+# undef SQLITE_UNTESTABLE
+#endif
 #define SQLITE_OMIT_UTF16            1
 #define SQLITE_OMIT_COMPLETE         1
 #define SQLITE_OMIT_LEGACY           1
@@ -269,8 +273,6 @@ typedef sqlite3_uint64 sqlite_uint64;
 #define SQLITE_FCNTL_CKPT_DONE              36
 #define SQLITE_FCNTL_RESERVE_BYTES          38
 #define SQLITE_FCNTL_CKPT_START             39
-#define SQLITE_FCNTL_VFS_POINTER            40
-#define SQLITE_FCNTL_JOURNAL_POINTER        41
 
 /* Memory status counters (used by malloc.c, mem1.c, pcache1.c) */
 #define SQLITE_STATUS_MEMORY_USED        0
@@ -579,6 +581,9 @@ typedef unsigned bft;
 
 #define SQLITE_DIRECT_OVERFLOW_READ 1
 
+#define SQLITE_SYSTEM_MALLOC 1
+#define SQLITE_MUTEX_PTHREADS 1
+
 /* THREADSAFE default */
 #if !defined(SQLITE_THREADSAFE)
 # define SQLITE_THREADSAFE 1
@@ -861,6 +866,10 @@ struct UnpackedRecord {
 };
 
 typedef int (*RecordCompare)(int, const void*, UnpackedRecord*);
+
+/* os.h triggers os_setup.h platform detection (SQLITE_OS_UNIX / OS_WIN);
+** without it os_unix.c compiles to an empty translation unit. */
+#include "os.h"
 
 /* Storage-subsystem headers: full definitions for the Pager / Btree /
 ** PCache / WAL types forward-declared above. */
